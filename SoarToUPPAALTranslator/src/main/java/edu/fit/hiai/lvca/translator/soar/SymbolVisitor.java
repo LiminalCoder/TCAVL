@@ -199,15 +199,19 @@ class SymbolVisitor extends SoarBaseVisitor<SymbolTree>
 
     /*
     07/13/2022 Changed visitTest to actually use conjunctive tests when present
+    07/20/2022 Added structure to check for and use disjunction tests and multi-value tests
      */
     @Override
     public SymbolTree visitTest(SoarParser.TestContext ctx)
     {
        System.out.println("Running a test on " + ctx.getText());
 
-       if (ctx.getText().startsWith("{") && ctx.getText().endsWith("}")) return ctx.conjunctive_test().accept(this);
+       if (ctx.getText().startsWith("{") && ctx.getText().endsWith("}"))
+           return ctx.conjunctive_test().accept(this);
        else if (ctx.getText().startsWith("<<") && ctx.getText().endsWith(">>"))
            return ctx.simple_test().disjunction_test().accept(this);
+       else if (ctx.getText().startsWith("[") && ctx.getText().endsWith("]"))
+           return ctx.multi_value_test().accept(this);
        else return ctx.simple_test().accept(this);
     }
 
