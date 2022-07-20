@@ -142,6 +142,7 @@ class SymbolVisitor extends SoarBaseVisitor<SymbolTree>
     {
         SymbolTree subtree = getTreeFromList(ctx.attr_test());
         nestedVariableName = null;
+        System.out.println("This is the attribute-value context: " + ctx.getText());
         ctx.value_test().forEach(vt -> vt.accept(this));
 
         if (nestedVariableName != null && !currentVariableDictionary.containsKey(nestedVariableName))
@@ -202,9 +203,11 @@ class SymbolVisitor extends SoarBaseVisitor<SymbolTree>
     @Override
     public SymbolTree visitTest(SoarParser.TestContext ctx)
     {
-       System.out.println("Running a test on " + ctx.getText() + "\n");
+       System.out.println("Running a test on " + ctx.getText());
 
-       if (ctx.getText().contains("{")) return ctx.conjunctive_test().accept(this);
+       if (ctx.getText().startsWith("{") && ctx.getText().endsWith("}")) return ctx.conjunctive_test().accept(this);
+       else if (ctx.getText().startsWith("<<") && ctx.getText().endsWith(">>"))
+           return ctx.simple_test().disjunction_test().accept(this);
        else return ctx.simple_test().accept(this);
     }
 
@@ -230,7 +233,32 @@ class SymbolVisitor extends SoarBaseVisitor<SymbolTree>
     07/13/2022 Begin implementing conjunctive (AND) tests to translator output
      */
     @Override
-    public SymbolTree visitConjunctive_test(SoarParser.Conjunctive_testContext ctx) { return ctx.children.get(0).accept(this); }
+    public SymbolTree visitConjunctive_test(SoarParser.Conjunctive_testContext ctx) {
+        System.out.println("This is the conjunctive test context: " + ctx.getText());
+        ctx.simple_test().forEach(this::visitSimple_test);
+        return null;
+    }
+
+    /*
+    07/20/2022 Prep for implementing disjunction tests to translator
+     */
+    @Override
+    public SymbolTree visitDisjunction_test(SoarParser.Disjunction_testContext ctx) {
+        System.out.println("This is the disjunction test context: " + ctx.getText());
+        ctx.constant().forEach(c -> c.accept(this));
+        return null;
+    }
+
+    /*
+    07/20/2022 Prep for implementing Multi-value tests
+     */
+
+    @Override
+    public SymbolTree visitMulti_value_test(SoarParser.Multi_value_testContext ctx) {
+        System.out.println("This is the multi-value context: " + ctx.getText());
+        ctx.Int_constant().forEach(c -> c.accept(this));
+        return null;
+    }
 
     @Override
     public SymbolTree visitVariable(SoarParser.VariableContext ctx)

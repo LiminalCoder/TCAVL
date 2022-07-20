@@ -307,7 +307,7 @@ public class UPPAALSemanticVisitor extends SoarBaseVisitor<Node> {
     @Override
     public Node visitConjunctive_test(SoarParser.Conjunctive_testContext ctx) {
         System.out.println( "This is the output for a conjunctive test\n" + ctx.children.get(0).getText());
-        return null; //ctx.children.get(0).accept(this);
+        return ctx.children.get(0).accept(this);
     }
 
     @Override

@@ -321,12 +321,13 @@ public class UPPAALCreator extends SoarBaseVisitor<Element>
                 }
                 else
                 {
-                    System.out.println("Checking number of values for " + attributeCtx.getText());
+                    System.out.println("Checking number of values for " + attributeCtx.getText() + ": " + attributeCtx.value_test(0).getText());
                     int numberOfValues = attributeCtx.value_test().size();
 
                     if (numberOfValues == 1)
                     {
                         Element relationAndRightTerm = attributeCtx.value_test(0).accept(this);
+                        System.out.println("This is the current relation being checked: " + attributeCtx.value_test(0).getText());
 
                         String relation = relationAndRightTerm.attributeValue("rel");
                         String rightTerm;
@@ -432,8 +433,11 @@ public class UPPAALCreator extends SoarBaseVisitor<Element>
     @Override
     public Element visitConjunctive_test(SoarParser.Conjunctive_testContext ctx)
     {
-        System.out.println(ctx.children);
-        return ctx.children.get(2).accept(this);
+        System.out.print("These are the subtests of this conjunctive test: ");
+        ctx.simple_test().forEach(t -> System.out.print(t.getText() + " "));
+        System.out.println();
+
+        return ctx.simple_test(1).accept(this);
     }
 
     @Override
@@ -442,16 +446,28 @@ public class UPPAALCreator extends SoarBaseVisitor<Element>
         return ctx.children.get(0).accept(this);
     }
 
+    /*
+    07/20/2022 Prep for implementing Multi-value tests
+     */
     @Override
     public Element visitMulti_value_test(SoarParser.Multi_value_testContext ctx)
     {
-        return null;
+        System.out.print("These are the proposed values for attribute " + ctx.getParent().getParent().getText() + ": ");
+        ctx.children.forEach(c -> System.out.print(c.getText() + " "));
+        System.out.println();
+        return null; //ctx.Int_constant(1).accept(this);
     }
 
+    /*
+    07/20/2022 Prep for implementing Disjunction tests
+     */
     @Override
     public Element visitDisjunction_test(SoarParser.Disjunction_testContext ctx)
     {
-        return null;
+        System.out.print("These are the options for this disjunction: ");
+        ctx.children.forEach(c -> System.out.print(c.getText() + " "));
+        System.out.println();
+        return null; //ctx.constant(1).accept(this);
     }
 
     @Override
