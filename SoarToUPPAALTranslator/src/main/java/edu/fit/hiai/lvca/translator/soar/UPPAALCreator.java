@@ -3,6 +3,7 @@ package edu.fit.hiai.lvca.translator.soar;
 import edu.fit.hiai.lvca.translator.gen.SoarBaseVisitor;
 import edu.fit.hiai.lvca.translator.gen.SoarParser;
 import edu.fit.hiai.lvca.translator.gen.SoarVisitor;
+import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.RuleContext;
 import org.antlr.v4.runtime.tree.ErrorNode;
 import org.antlr.v4.runtime.tree.ParseTree;
@@ -321,8 +322,33 @@ public class UPPAALCreator extends SoarBaseVisitor<Element>
                 }
                 else
                 {
-                    System.out.println("Checking number of values for " + attributeCtx.getText() + ": " + attributeCtx.value_test(0).getText());
-                    int numberOfValues = attributeCtx.value_test().size();
+                    //System.out.println("Checking number of values for " + attributeCtx.getText() + ": " + attributeCtx.value_test(0));
+                    /*
+                    07/21/2022 Conditional logic to identify types of tests on Soar condition-side
+                     */
+                    int numberOfValues;
+                    List <? extends ParserRuleContext> contexts = null;
+                    List <TerminalNode> constants = null;
+                    if (attributeCtx.value_test(0).test().conjunctive_test() != null) {
+                        numberOfValues = attributeCtx.value_test(0).test().conjunctive_test().simple_test().size();
+                        contexts = attributeCtx.value_test(0).test().conjunctive_test().simple_test();
+                    } else if (attributeCtx.value_test(0).test().simple_test().disjunction_test() != null) {
+                        numberOfValues = attributeCtx.value_test(0).test().simple_test().disjunction_test().constant().size();
+                        contexts = attributeCtx.value_test(0).test().simple_test().disjunction_test().constant();
+                    } else if (attributeCtx.value_test(0).test().multi_value_test() != null) {
+                        numberOfValues = attributeCtx.value_test(0).test().multi_value_test().Int_constant().size();
+                        constants = attributeCtx.value_test(0).test().multi_value_test().Int_constant();
+                    } else {
+                        // There would be a risk of NullPointer here, but numberOfValues will always be 1 within this block
+                         try {
+                            numberOfValues = attributeCtx.value_test().size();
+
+                        } catch (NullPointerException e) {
+                            System.out.println("There is no value test in the current context.");
+                            numberOfValues = 0;
+                        }
+
+                    }
 
                     if (numberOfValues == 1)
                     {
@@ -363,10 +389,91 @@ public class UPPAALCreator extends SoarBaseVisitor<Element>
                             stateVariableComparisons.add(simplifiedString(leftTerm) + " " + relation + " " + simplifiedString(rightTerm));
                         }
                     }
-                    else
+                    /*
+                    07/21/2022 Handles parsing of multi-valued tests, like conjunctive, disjunction, or multi-value
+                     */
+                    else if (contexts != null)
                     {
 
-                        // use "path_to_var[index] = constant" pattern
+                        for (ParserRuleContext test:contexts) {
+                            System.err.println(test.children.get(0).getText());
+                            Element relationAndRightTerm = test.accept(this);
+                            System.out.println("This is the current subtest being checked: " + test.getText());
+
+                            String relation = relationAndRightTerm.attributeValue("rel");
+                            String rightTerm;
+
+                            if (relation == null || relation.equals("="))
+                            {
+                                relation = "==";
+                            }
+
+                            if (relationAndRightTerm.attribute("var") != null)
+                            {
+                                rightTerm = localVariableDictionary.get(relationAndRightTerm.attributeValue("var"));
+                            }
+                            else
+                            {
+                                rightTerm = relationAndRightTerm.attributeValue("const");
+                            }
+
+                            if (rightTerm == null)
+                            {
+                                break;
+                            }
+                            else if (rightTerm.equals("true") && relation.equals("=="))
+                            {
+                                stateVariableComparisons.add(simplifiedString(leftTerm));
+                            }
+                            else if (rightTerm.equals("false") && relation.equals("=="))
+                            {
+                                stateVariableComparisons.add("!"+simplifiedString(leftTerm));
+                            }
+                            else if (!rightTerm.equals(leftTerm))
+                            {
+                                stateVariableComparisons.add(simplifiedString(leftTerm) + " " + relation + " " + simplifiedString(rightTerm));
+                            }
+                        }
+
+                    } else {
+                        for (TerminalNode constant:constants) {
+                            Element relationAndRightTerm = constant.accept(this);
+                            System.out.println("This is the current constant being checked: " + constant.getText());
+
+                            String relation = relationAndRightTerm.attributeValue("rel");
+                            String rightTerm;
+
+                            if (relation == null || relation.equals("="))
+                            {
+                                relation = "==";
+                            }
+
+                            if (relationAndRightTerm.attribute("var") != null)
+                            {
+                                rightTerm = localVariableDictionary.get(relationAndRightTerm.attributeValue("var"));
+                            }
+                            else
+                            {
+                                rightTerm = relationAndRightTerm.attributeValue("const");
+                            }
+
+                            if (rightTerm == null)
+                            {
+                                break;
+                            }
+                            else if (rightTerm.equals("true") && relation.equals("=="))
+                            {
+                                stateVariableComparisons.add(simplifiedString(leftTerm));
+                            }
+                            else if (rightTerm.equals("false") && relation.equals("=="))
+                            {
+                                stateVariableComparisons.add("!"+simplifiedString(leftTerm));
+                            }
+                            else if (!rightTerm.equals(leftTerm))
+                            {
+                                stateVariableComparisons.add(simplifiedString(leftTerm) + " " + relation + " " + simplifiedString(rightTerm));
+                            }
+                        }
                     }
                 }
             }
@@ -467,7 +574,7 @@ public class UPPAALCreator extends SoarBaseVisitor<Element>
         System.out.print("These are the options for this disjunction: ");
         ctx.children.forEach(c -> System.out.print(c.getText() + " "));
         System.out.println();
-        return null; //ctx.constant(1).accept(this);
+        return ctx.constant(1).accept(this);
     }
 
     @Override
@@ -547,10 +654,19 @@ public class UPPAALCreator extends SoarBaseVisitor<Element>
 
         for (SoarParser.Attr_value_makeContext attrCtx : ctxs)
         {
-            String suffix = attrCtx.variable_or_sym_constant()
-                    .stream()
-                    .map(RuleContext::getText)
-                    .collect(Collectors.joining("_"));
+            /*
+            07/21/2022 Modified action-side assignment name generation to better handle variables
+             */
+            String suffix = "";
+            for (SoarParser.Variable_or_sym_constantContext word:attrCtx.variable_or_sym_constant()) {
+                try {
+                    suffix = suffix.concat(word.variable().sym_constant().getText() + "_");
+                } catch (NullPointerException e) {
+                    suffix = suffix.concat(word.sym_constant().getText() + "_");
+                }
+            }
+
+            if (suffix.endsWith("_")) suffix = suffix.substring(0, suffix.length()-1);
 
             String leftSide = prefix + "_" + suffix;
 
@@ -559,6 +675,9 @@ public class UPPAALCreator extends SoarBaseVisitor<Element>
 
             if (rightSide != null)
             {
+                if (stateAssignments.containsKey(leftSide)) {
+                    System.out.println("This is the value for " + leftSide + ": " + Arrays.toString(stateAssignments.get(leftSide)));
+                }
                 stateAssignments.put(leftSide, rightSide);
             }
         }
@@ -599,6 +718,9 @@ public class UPPAALCreator extends SoarBaseVisitor<Element>
             prefs = "+";
         }
 
+        /*
+        07/21/2022 Modified to expand rightSide array and include multiple values
+         */
         if (stateAssignments.containsKey(leftSide))
         {
             String currentPrefs = stateAssignments.get(leftSide)[1];
@@ -607,7 +729,12 @@ public class UPPAALCreator extends SoarBaseVisitor<Element>
 
             if (bestPref.equals(prefs))
             {
-                return new String[]{rightSide, prefs};
+                int oldsize = stateAssignments.get(leftSide).length;
+                String[] output = Arrays.copyOf(stateAssignments.get(leftSide), oldsize+2);
+                output[oldsize] = rightSide;
+                output[oldsize+1] = prefs;
+                System.err.println("The new choices for " + leftSide + " are : " + Arrays.toString(output));
+                return output; //new String[]{rightSide, prefs};
             }
             else
             {
@@ -719,9 +846,18 @@ public class UPPAALCreator extends SoarBaseVisitor<Element>
         }
     }
 
+
+    /*
+    07/21/2022 Modified to get variable text without special characters (< or >)
+     */
     @Override
     public Element visitVariable_or_sym_constant(SoarParser.Variable_or_sym_constantContext ctx)
     {
+        if (ctx.sym_constant() != null) {
+            System.err.println(ctx.sym_constant().getText());
+        } else {
+            System.err.println(ctx.variable().getText());
+        }
         return null;
     }
 

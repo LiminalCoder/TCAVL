@@ -9,9 +9,7 @@ sp {propose*initialize*multi-value
 sp {apply*initialize*multi-value
    (state <s> ^operator.name initialize)
 -->
-   (<s> ^num 1 
-		^num 2
-		^num 3
+   (<s> ^num [1 2 3]
 		^name values)
 }
 

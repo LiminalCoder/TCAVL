@@ -215,10 +215,15 @@ class SymbolVisitor extends SoarBaseVisitor<SymbolTree>
        else return ctx.simple_test().accept(this);
     }
 
+    /*
+    07/21/2022 Modified to handle disjunction tests
+     */
     @Override
     public SymbolTree visitSimple_test(SoarParser.Simple_testContext ctx)
     {
-        return ctx.relational_test().accept(this);
+        if (ctx.getText().startsWith("<<") && ctx.getText().endsWith(">>"))
+            return ctx.disjunction_test().accept(this);
+        else return ctx.relational_test().accept(this);
     }
 
     @Override
